@@ -23,9 +23,7 @@ Chatbot de terminal en Python que genera pronósticos deportivos completos usand
 
 1. Clona el repositorio
 2. Instala las dependencias: `pip install anthropic python-dotenv requests`
-3. Crea un archivo `.env` con tus claves:
-ANTHROPIC_API_KEY=tu-clave-de-anthropic
-API_FOOTBALL_KEY=tu-clave-de-api-football
+3. Crea un archivo `.env` con tus claves
 4. Ejecuta: `python main.py`
 
 ## ⚠️ Aviso
