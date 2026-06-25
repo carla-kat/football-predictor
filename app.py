@@ -1,5 +1,6 @@
 import os
 import requests
+import streamlit as st
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from datetime import date
@@ -7,53 +8,11 @@ from datetime import date
 load_dotenv()
 
 client = Anthropic()
-historial = []
 hoy = date.today().strftime("%Y-%m-%d")
 hoy_es = date.today().strftime("%d/%m/%Y")
 
 API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY")
 HEADERS = {"x-apisports-key": API_FOOTBALL_KEY}
-
-def obtener_partidos_hoy():
-    url = "https://v3.football.api-sports.io/fixtures"
-    params = {"date": hoy, "timezone": "Europe/Madrid"}
-    respuesta = requests.get(url, headers=HEADERS, params=params)
-    return respuesta.json().get("response", [])
-
-def obtener_convocatoria(team_id):
-    url = "https://v3.football.api-sports.io/players/squads"
-    params = {"team": team_id}
-    respuesta = requests.get(url, headers=HEADERS, params=params)
-    datos = respuesta.json().get("response", [])
-    if not datos:
-        return []
-    jugadores = datos[0].get("players", [])
-    return [f"{j['name']} ({j['position']})" for j in jugadores]
-
-def obtener_ultimos_partidos(team_id):
-    url = "https://v3.football.api-sports.io/fixtures"
-    params = {"team": team_id, "last": 5}
-    respuesta = requests.get(url, headers=HEADERS, params=params)
-    partidos = respuesta.json().get("response", [])
-    resultado = []
-    for p in partidos:
-        local = p["teams"]["home"]["name"]
-        visitante = p["teams"]["away"]["name"]
-        goles_local = p["goals"]["home"]
-        goles_visitante = p["goals"]["away"]
-        resultado.append(f"{local} {goles_local} - {goles_visitante} {visitante}")
-    return resultado
-
-def formatear_partidos(partidos):
-    if not partidos:
-        return "No hay partidos disponibles para hoy."
-    resultado = ""
-    for p in partidos:
-        equipos = p["teams"]
-        liga = p["league"]
-        hora = p["fixture"]["date"][11:16]
-        resultado += f"- {equipos['home']['name']} vs {equipos['away']['name']} ({liga['name']}) — {hora}h\n"
-    return resultado
 
 TRADUCCIONES = {
     "suiza": "switzerland", "canadá": "canada", "canada": "canada",
@@ -87,10 +46,40 @@ TRADUCCIONES = {
     "estados unidos": "usa", "eeuu": "usa",
 }
 
+def obtener_partidos_hoy():
+    url = "https://v3.football.api-sports.io/fixtures"
+    params = {"date": hoy, "timezone": "Europe/Madrid"}
+    respuesta = requests.get(url, headers=HEADERS, params=params)
+    return respuesta.json().get("response", [])
+
+def obtener_convocatoria(team_id):
+    url = "https://v3.football.api-sports.io/players/squads"
+    params = {"team": team_id}
+    respuesta = requests.get(url, headers=HEADERS, params=params)
+    datos = respuesta.json().get("response", [])
+    if not datos:
+        return []
+    jugadores = datos[0].get("players", [])
+    return [f"{j['name']} ({j['position']})" for j in jugadores]
+
+def obtener_ultimos_partidos(team_id):
+    url = "https://v3.football.api-sports.io/fixtures"
+    params = {"team": team_id, "last": 5}
+    respuesta = requests.get(url, headers=HEADERS, params=params)
+    partidos = respuesta.json().get("response", [])
+    resultado = []
+    for p in partidos:
+        local = p["teams"]["home"]["name"]
+        visitante = p["teams"]["away"]["name"]
+        goles_local = p["goals"]["home"]
+        goles_visitante = p["goals"]["away"]
+        resultado.append(f"{local} {goles_local} - {goles_visitante} {visitante}")
+    return resultado
+
 def buscar_partido(partidos, texto):
     texto = texto.lower()
     palabras = texto.split()
-    
+
     palabras_traducidas = []
     for palabra in palabras:
         if palabra in TRADUCCIONES:
@@ -111,8 +100,6 @@ def obtener_contexto_partido(partido):
     away_id = partido["teams"]["away"]["id"]
     home_name = partido["teams"]["home"]["name"]
     away_name = partido["teams"]["away"]["name"]
-
-    print(f"\n🔍 Obteniendo datos de {home_name} y {away_name}...")
 
     convocatoria_home = obtener_convocatoria(home_id)
     convocatoria_away = obtener_convocatoria(away_id)
@@ -140,33 +127,19 @@ CONVOCATORIA {away_name}:
 ÚLTIMOS 5 PARTIDOS {away_name}:
 {chr(10).join(ultimos_away) if ultimos_away else "No disponible"}
 """
-    return contexto
 
-print("""
-⚽ ================================= ⚽
-      FOOTBALL PREDICTOR
-      Pronósticos deportivos con IA
-⚽ ================================= ⚽
+# Configuración de la página
+st.set_page_config(page_title="Football Predictor", page_icon="⚽")
 
-Puedo ayudarte con:
-  • Pronósticos de partidos de hoy
-  • Análisis de convocatorias reales
-  • Estimación de corners y goles
-  • Recomendaciones de apuesta
+# Inicializar sesión
+if "historial" not in st.session_state:
+    st.session_state.historial = []
 
-Escribe el nombre de dos equipos y
-te haré un análisis completo.
-Escribe 'salir' para terminar.
-
-⚽ ================================= ⚽
-""")
-partidos = obtener_partidos_hoy()
-resumen_partidos = formatear_partidos(partidos)
+if "partidos" not in st.session_state:
+    st.session_state.partidos = obtener_partidos_hoy()
 
 system = f"""Eres un experto en análisis de fútbol y pronósticos deportivos.
 Hoy es {hoy_es} y el usuario está en España (zona horaria Europe/Madrid).
-Estos son los partidos de fútbol disponibles hoy:
-{resumen_partidos}
 Cuando el usuario pregunte por un partido, recibirás datos reales de la API con la convocatoria actual de ambos equipos y sus últimos 5 partidos. Usa SIEMPRE esos datos para el pronóstico, nunca inventes jugadores ni resultados.
 Tu pronóstico debe incluir:
 1. Resultado probable (quién gana o empate)
@@ -174,35 +147,76 @@ Tu pronóstico debe incluir:
 3. Estimación de corners totales
 4. Over/Under 2.5 goles
 5. Cualquier otro dato relevante para una apuesta
-Responde siempre en español y de forma clara y estructurada."""
+Responde siempre en español y de forma clara y estructurada.
+Si no recibes datos de partido, responde con normalidad como asistente de fútbol."""
 
-while True:
-    usuario = input("Tú: ")
+# Pantalla de bienvenida o título
+if not st.session_state.historial:
+    st.markdown("""
+        <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 70vh;
+            text-align: center;
+        ">
+            <div style="font-size: 64px">⚽</div>
+            <h1 style="font-size: 2.5rem; margin: 0.5rem 0">Football Predictor</h1>
+            <p style="color: gray; font-size: 1.1rem">Pronósticos deportivos con IA</p>
+            <p style="color: gray; font-size: 0.9rem; margin-top: 1rem">
+                Solo disponible para partidos del día de hoy
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+else:
+    st.title("⚽ Football Predictor")
 
-    if usuario.lower() == "salir":
-        print("¡Hasta luego!")
-        break
+with st.sidebar:
+    st.markdown("### ⚽ Football Predictor")
+    if st.button("🗑️ Nueva conversación"):
+        st.session_state.historial = []
+        st.rerun()
 
-    partido_encontrado = buscar_partido(partidos, usuario)
+# Mostrar historial
+for mensaje in st.session_state.historial:
+    with st.chat_message(mensaje["role"]):
+        st.markdown(mensaje["content"])
+
+# Input del usuario
+if usuario := st.chat_input("Escribe aquí tu pregunta..."):
+    with st.chat_message("user"):
+        st.markdown(usuario)
+
+    partido_encontrado = buscar_partido(st.session_state.partidos, usuario)
+    contexto_añadido = ""
 
     if partido_encontrado:
-        contexto = obtener_contexto_partido(partido_encontrado)
-        mensaje_con_contexto = f"{usuario}\n\n{contexto}"
-        historial.append({"role": "user", "content": mensaje_con_contexto})
-    else:
-        historial.append({"role": "user", "content": usuario})
+        with st.spinner("🔍 Obteniendo datos del partido..."):
+            contexto_añadido = obtener_contexto_partido(partido_encontrado)
+    elif len([p for p in usuario.lower().split() if p in TRADUCCIONES]) > 0:
+        st.warning("⚠️ No encontré ese partido en los partidos de hoy. Prueba con otro equipo.")
 
-    respuesta = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=1024,
-        system=system,
-        messages=historial
-    )
+    mensaje_final = usuario
+    if contexto_añadido:
+        mensaje_final = f"{usuario}\n\n{contexto_añadido}"
 
-    texto = ""
-    for bloque in respuesta.content:
-        if bloque.type == "text":
-            texto += bloque.text
+    st.session_state.historial.append({"role": "user", "content": usuario})
 
-    historial.append({"role": "assistant", "content": texto})
-    print(f"\nClaude: {texto}\n")
+    with st.chat_message("assistant"):
+        with st.spinner("Analizando..."):
+            respuesta = client.messages.create(
+                model="claude-haiku-4-5",
+                max_tokens=1024,
+                system=system,
+                messages=[{"role": m["role"], "content": m["content"]}
+                          for m in st.session_state.historial[:-1]] +
+                         [{"role": "user", "content": mensaje_final}]
+            )
+            texto = ""
+            for bloque in respuesta.content:
+                if bloque.type == "text":
+                    texto += bloque.text
+            st.markdown(texto)
+
+    st.session_state.historial.append({"role": "assistant", "content": texto})
