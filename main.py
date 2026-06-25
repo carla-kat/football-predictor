@@ -132,11 +132,26 @@ CONVOCATORIA {away_name}:
 """
     return contexto
 
-print("⚽ Football Predictor — escribe 'salir' para terminar\n")
-print("Cargando partidos de hoy...\n")
+print("""
+⚽ ================================= ⚽
+      FOOTBALL PREDICTOR
+      Pronósticos deportivos con IA
+⚽ ================================= ⚽
+
+Puedo ayudarte con:
+  • Pronósticos de partidos de hoy
+  • Análisis de convocatorias reales
+  • Estimación de corners y goles
+  • Recomendaciones de apuesta
+
+Escribe el nombre de dos equipos y
+te haré un análisis completo.
+Escribe 'salir' para terminar.
+
+⚽ ================================= ⚽
+""")
 partidos = obtener_partidos_hoy()
 resumen_partidos = formatear_partidos(partidos)
-print(f"Partidos disponibles hoy:\n{resumen_partidos}")
 
 system = f"""Eres un experto en análisis de fútbol y pronósticos deportivos.
 Hoy es {hoy_es} y el usuario está en España (zona horaria Europe/Madrid).
